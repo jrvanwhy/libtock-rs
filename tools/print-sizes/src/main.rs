@@ -71,6 +71,19 @@ struct ElfSizes {
     text: u64,
 }
 
+impl std::ops::Add for &ElfSizes {
+    type Output = ElfSizes;
+
+    fn add(self, rhs: &ElfSizes) -> ElfSizes {
+        ElfSizes {
+            bss: self.bss + rhs.bss,
+            data: self.data + rhs.data,
+            rodata: self.rodata + rhs.rodata,
+            text: self.text + rhs.text,
+        }
+    }
+}
+
 fn get_sizes(path: &std::path::Path) -> ElfSizes {
     let file = elf::File::open_path(path).expect("Unable to open example binary");
     let mut sizes = ElfSizes {
@@ -126,7 +139,7 @@ fn main() {
         "{0:1$} {2:3$} {4:>7$} {5:>7$} {6:>7$}",
         "Example", name_width, "Architecture", arch_width, ".bss", ".data", ".text", section_width
     );
-    for data in example_data {
+    for data in &example_data {
         println!(
             "{0:1$} {2:3$} {4:7$} {5:7$} {6:7$}",
             data.name,
@@ -136,6 +149,29 @@ fn main() {
             data.sizes.bss,
             data.sizes.data,
             data.sizes.text,
+            section_width
+        );
+    }
+
+    for arch in &ARCHITECTURES {
+        let mut totals = ElfSizes {
+            bss: 0,
+            data: 0,
+            rodata: 0,
+            text: 0,
+        };
+        for data in example_data.iter().filter(|d| d.arch == *arch) {
+            totals = &totals + &data.sizes;
+        }
+        println!(
+            "{0:1$} {2:3$} {4:7$} {5:7$} {6:7$}",
+            "Total",
+            name_width,
+            arch,
+            arch_width,
+            totals.bss,
+            totals.data,
+            totals.text,
             section_width
         );
     }
