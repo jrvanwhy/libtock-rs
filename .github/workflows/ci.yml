@@ -41,4 +41,4 @@ jobs:
           cd "${GITHUB_WORKSPACE}"
           rustup target add riscv32imc-unknown-none-elf thumbv7em-none-eabi
           make -j2 setup
-          time make -j2 test
+          time make -j test
