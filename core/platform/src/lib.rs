@@ -1,17 +1,12 @@
 #![no_std]
 
-// TODO: Implement this crate, which will be done piece-by-piece. Platform will
-// include:
-//   1. The Allowed and AllowedSlice abstractions for sharing memory with the
-//      kernel
-//   2. The PlatformApi trait and Platform implementation.
-//   3. A system call trait so that Platform works in both real Tock apps and
-//      unit test environments. [DONE]
+mod callbacks;
 
-mod allows;
-mod error_code;
-mod syscalls;
+pub use callbacks::{FreeCallback, MethodCallback};
 
-pub use allows::{AllowReadable, Allowed};
-pub use error_code::ErrorCode;
-pub use syscalls::{MemopNoArg, MemopWithArg, Syscalls};
+pub trait Syscalls: Copy {
+    fn subscribe(self, driver: usize, minor: usize, callback: extern "C" fn(usize, usize, usize, usize), data: usize);
+    unsafe fn const_allow(self, major: usize, minor: usize, slice: *const u8, len: usize);
+    fn command(self, major: usize, miner: usize, arg1: usize, arg2: usize);
+    fn yieldk(self);
+}

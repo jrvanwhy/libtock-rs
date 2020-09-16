@@ -21,3 +21,5 @@ pub mod shared_memory;
 pub mod stack_size;
 pub mod syscalls;
 pub mod unwind_symbols;
+
+pub use libtock_console::*;
