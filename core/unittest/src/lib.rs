@@ -71,7 +71,7 @@ macro_rules! test_component {
         GLOBAL.with(|g| g.set(Some($name)));
         struct $link;
         impl<T> libtock_platform::FreeCallback<T> for $link
-        where &'static $comp: libtock_platform::MethodCallback<T> {
+        where $comp: libtock_platform::MethodCallback<T> {
             fn call(response: T) {
                 GLOBAL.with(|g| g.get().unwrap()).call(response);
             }

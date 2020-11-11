@@ -23,8 +23,8 @@ impl<AsyncResponse, Syscalls: libtock_platform::Syscalls> SyncAdapter<AsyncRespo
 }
 
 impl<AsyncResponse, Syscalls: libtock_platform::Syscalls>
-MethodCallback<AsyncResponse> for &SyncAdapter<AsyncResponse, Syscalls> {
-    fn call(self, response: AsyncResponse) {
+MethodCallback<AsyncResponse> for SyncAdapter<AsyncResponse, Syscalls> {
+    fn call(&self, response: AsyncResponse) {
         self.response.set(Some(response));
     }
 }

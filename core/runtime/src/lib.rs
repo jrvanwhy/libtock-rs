@@ -65,7 +65,7 @@ macro_rules! static_component {
         static mut COMPONENT: $comp = $init;
         struct $link;
         impl<T> libtock_platform::FreeCallback<T> for $link
-        where &'static $comp: libtock_platform::MethodCallback<T> {
+        where $comp: libtock_platform::MethodCallback<T> {
             fn call(response: T) {
                 unsafe { &COMPONENT }.call(response);
             }

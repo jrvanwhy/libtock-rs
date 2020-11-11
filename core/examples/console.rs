@@ -36,8 +36,8 @@ impl App {
     }
 }
 
-impl MethodCallback<WriteCompleted> for &'static App {
-    fn call(self, _response: WriteCompleted) {
+impl MethodCallback<WriteCompleted> for App {
+    fn call(&self, _response: WriteCompleted) {
         if self.done.get() { return; }
         self.done.set(true);
         set_write_buffer(TockSyscalls, unsafe { &NOUN } );
