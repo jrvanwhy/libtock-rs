@@ -58,3 +58,17 @@ impl libtock_platform::Syscalls for TockSyscalls {
         let _ = res;
     }
 }
+
+#[macro_export]
+macro_rules! static_component {
+    [$link:ident, $name:ident: $comp:ty = $init:expr] => {
+        static mut COMPONENT: $comp = $init;
+        struct $link;
+        impl<T> libtock_platform::FreeCallback<T> for $link
+        where &'static $comp: libtock_platform::MethodCallback<T> {
+            fn call(response: T) {
+                unsafe { &COMPONENT }.call(response);
+            }
+        }
+    };
+}

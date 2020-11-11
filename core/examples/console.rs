@@ -9,15 +9,14 @@ extern crate libtock_core;
 pub static mut STACK_MEMORY: [u8; 0x800] = [0; 0x800];
 
 use libtock_console::{set_write_buffer, set_write_callback, start_write, WriteCompleted};
-use libtock_platform::{FreeCallback, Syscalls};
+use libtock_platform::{MethodCallback, Syscalls};
 use libtock_runtime::TockSyscalls;
 
 static mut GREETING: [u8; 7] = *b"Hello, ";
 static mut NOUN: [u8; 7] = *b"World!\n";
-static mut DONE: bool = false;
 
 fn main() {
-    set_write_callback::<_, App>(TockSyscalls, 0);
+    set_write_callback::<_, AppLink>(TockSyscalls, 0);
     set_write_buffer(TockSyscalls, unsafe { &GREETING } );
     start_write(TockSyscalls, unsafe { GREETING.len() });
     loop {
@@ -25,15 +24,25 @@ fn main() {
     }
 }
 
-struct App;
+struct App {
+    done: core::cell::Cell<bool>
+}
 
-impl FreeCallback<WriteCompleted> for App {
-    fn call(_response: WriteCompleted) {
-        unsafe {
-            if DONE { return; }
-            DONE = true;
+impl App {
+    pub const fn new() -> App {
+        App {
+            done: core::cell::Cell::new(false)
         }
+    }
+}
+
+impl MethodCallback<WriteCompleted> for &'static App {
+    fn call(self, _response: WriteCompleted) {
+        if self.done.get() { return; }
+        self.done.set(true);
         set_write_buffer(TockSyscalls, unsafe { &NOUN } );
         start_write(TockSyscalls, unsafe { NOUN.len() } );
     }
 }
+
+libtock_runtime::static_component![AppLink, APP: App = App::new()];
