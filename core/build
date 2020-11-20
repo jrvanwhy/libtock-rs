@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+cd "$(dirname "$0")"
+
+cp ../boards/layout_hifive1.ld ../layout.ld
+KERNEL_HEAP_SIZE=1024 PLATFORM=hifive1 cargo rrv32imac --example console

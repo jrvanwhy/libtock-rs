@@ -81,7 +81,10 @@ exclude = [ "tock" ]
 members = [
     "codegen",
     "core",
+    "core/console",
     "core/platform",
+    "core/runtime",
+    "core/unittest",
     "test_runner",
     "tools/print_sizes",
 ]

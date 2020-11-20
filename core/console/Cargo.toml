@@ -1,0 +1,18 @@
+[package]
+authors = ["Tock Project Developers <tock-dev@googlegroups.com>"]
+categories = ["embedded", "no-std", "os"]
+# TODO: Update the description to point to other console-related tools, such as
+# a printf-debugging tool (that jrvanwhy hasn't written yet).
+description = """libtock-rs console driver. Provides a direct interface to the
+                 Tock console."""
+edition = "2018"
+license = "Apache-2.0 OR MIT"
+name = "libtock_console"
+repository = "https://www.github.com/tock/libtock-rs"
+version = "0.1.0"
+
+[dependencies]
+libtock_platform = { path = "../platform" }
+
+[dev-dependencies]
+libtock_unittest = { path = "../unittest" }
