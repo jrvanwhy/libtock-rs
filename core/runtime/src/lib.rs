@@ -1,7 +1,7 @@
 #![feature(llvm_asm)]
 #![no_std]
 
-use libtock_platform::{Callback, SubscribeResponse, SubscribeData};
+use libtock_platform::{Callback, Locator, SubscribeResponse, SubscribeData};
 
 #[derive(Clone, Copy)]
 pub struct TockSyscalls;
@@ -18,17 +18,17 @@ unsafe fn raw_subscribe(driver: usize, minor: usize, callback: unsafe extern fn(
     let _ = res;
 }
 
-unsafe extern fn kernel_callback<C: Callback<SubscribeResponse<D>>, D: SubscribeData>(
+unsafe extern fn kernel_callback<L: Locator<SubscribeResponse<D>>, D: SubscribeData>(
     arg1: usize, arg2: usize, arg3: usize, data: usize
 ) {
-    C::locate().call(SubscribeResponse { arg1, arg2, arg3, data: D::from_usize(data) });
+    L::locate().call(SubscribeResponse { arg1, arg2, arg3, data: D::from_usize(data) });
 }
 
 impl libtock_platform::Syscalls<'static> for TockSyscalls {
-    fn subscribe<C: Callback<SubscribeResponse<D>> + 'static, D: SubscribeData + 'static>(
-        self, driver: usize, minor: usize, _callback: C, data: D
+    fn subscribe<L: Locator<SubscribeResponse<D>> + 'static, D: SubscribeData + 'static>(
+        self, driver: usize, minor: usize, _locator: L, data: D
     ) {
-        unsafe { raw_subscribe(driver, minor, kernel_callback::<C, D>, data.to_usize()) }
+        unsafe { raw_subscribe(driver, minor, kernel_callback::<L, D>, data.to_usize()) }
     }
 
     unsafe fn raw_const_allow(self, major: usize, minor: usize, slice: *const u8, len: usize) {
@@ -95,16 +95,16 @@ impl<T> core::ops::Deref for TockStatic<T> {
 #[macro_export]
 macro_rules! static_component {
     [$link:ident, $name:ident: $comp:ty = $init:expr] => {
-        static COMPONENT: $crate::TockStatic<$comp> = $crate::TockStatic::new($init);
+        static $name: $crate::TockStatic<$comp> = $crate::TockStatic::new($init);
         #[derive(Clone, Copy)]
         struct $link;
-        impl<T> libtock_platform::Callback<T> for $link
+        impl<T> libtock_platform::Locator<T> for $link
         where &'static $comp: libtock_platform::Callback<T> {
-            fn locate() -> Self { Self }
+            type Callback = &'static $comp;
 
-            fn call(self, response: T) {
-                COMPONENT.call(response);
-            }
+            fn locate() -> Self::Callback { &$name }
+
+            fn get(self) -> Self::Callback { &$name }
         }
     };
 }

@@ -8,7 +8,7 @@ extern crate libtock_core;
 #[link_section = ".stack_buffer"]
 pub static mut STACK_MEMORY: [u8; 0x800] = [0; 0x800];
 
-use libtock_console::{set_write_buffer, set_write_callback, start_write, WriteCompleted};
+use libtock_console::{Console, WriteCompleted};
 use libtock_platform::{Callback, Syscalls};
 use libtock_runtime::TockSyscalls;
 
@@ -40,8 +40,6 @@ impl App {
 }
 
 impl Callback<WriteCompleted<usize>> for &App {
-    fn locate() -> Self { panic!("App's callback should not be used directly"); }
-
     fn call(self, _response: WriteCompleted<usize>) {
         if self.done.get() { return; }
         self.done.set(true);

@@ -10,7 +10,7 @@
 //! system call API is documented at
 //! https://github.com/tock/tock/blob/master/doc/syscalls/00001_console.md.
 
-use libtock_platform::{Callback, SubscribeData, SubscribeResponse, Syscalls};
+use libtock_platform::{Callback, Locator, SubscribeData, SubscribeResponse, Syscalls};
 
 pub struct WriteCompleted<D: SubscribeData> {
     pub bytes: usize,
@@ -29,10 +29,10 @@ impl<S> Console<S> {
 }
 
 impl<'k, S: Syscalls<'k>> Console<S> {
-    pub fn set_write_callback<C: Callback<WriteCompleted<D>> + 'k, D: SubscribeData + 'k>(
-        self, callback: C, data: D
+    pub fn set_write_callback<L: Locator<WriteCompleted<D>> + 'k, D: SubscribeData + 'k>(
+        self, locator: L, data: D
     ) {
-        self.syscalls.subscribe(1, 1, WriteCallback { callback }, data)
+        self.syscalls.subscribe(1, 1, WriteLocator { locator }, data)
     }
 
     pub fn set_write_buffer(self, buffer: &'k [u8]) {
@@ -45,15 +45,30 @@ impl<'k, S: Syscalls<'k>> Console<S> {
 }
 
 #[derive(Clone, Copy)]
-struct WriteCallback<C: Copy> {
+struct WriteCallback<C> {
     callback: C,
 }
 
 impl<C: Callback<WriteCompleted<D>>, D: SubscribeData> Callback<SubscribeResponse<D>> for WriteCallback<C> {
-    fn locate() -> Self { WriteCallback { callback: C::locate() } }
-
     fn call(self, response: SubscribeResponse<D>) {
         self.callback.call(WriteCompleted { bytes: response.arg1, data: response.data });
+    }
+}
+
+#[derive(Clone, Copy)]
+struct WriteLocator<L> {
+    locator: L,
+}
+
+impl<L: Locator<WriteCompleted<D>>, D: SubscribeData> Locator<SubscribeResponse<D>> for WriteLocator<L> {
+    type Callback = WriteCallback<L::Callback>;
+
+    fn locate() -> WriteCallback<L::Callback> {
+        WriteCallback { callback: L::locate() }
+    }
+
+    fn get(self) -> WriteCallback<L::Callback> {
+        WriteCallback { callback: self.locator.get() }
     }
 }
 
@@ -64,14 +79,14 @@ mod tests {
         extern crate std;
 
         use libtock_sync::SyncAdapter;
-        use libtock_unittest::FakeSyscalls;
-        use super::Console;
+        use libtock_unittest::{FakeSyscalls, test_component};
+        use super::{Console, WriteCompleted};
 
-        let sync_adapter = &SyncAdapter::new();
+        test_component![sync_link: SyncLink; sync_adapter: SyncAdapter<WriteCompleted<usize>> = SyncAdapter::new()];
         let syscalls = &FakeSyscalls::new();
         let console = Console::new(syscalls);
 
-        console.set_write_callback(sync_adapter, 1234);
+        console.set_write_callback(sync_link, 1234);
         console.set_write_buffer(b"Hello");
         console.start_write(5);
         let response = sync_adapter.wait(syscalls);

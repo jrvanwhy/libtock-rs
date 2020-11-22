@@ -1,5 +1,5 @@
 use core::cell::Cell;
-use libtock_platform::{Callback, SubscribeData, SubscribeResponse};
+use libtock_platform::{Callback, Locator, SubscribeData, SubscribeResponse};
 
 pub struct FakeSyscalls<'k> {
     callback_pending: Cell<Option<usize>>,
@@ -39,11 +39,11 @@ impl<C: Callback<SubscribeResponse<D>>, D: SubscribeData> DynCallback for RawCal
 }
 
 impl<'k> libtock_platform::Syscalls<'k> for &FakeSyscalls<'k> {
-    fn subscribe<C: Callback<SubscribeResponse<D>> + 'k, D: SubscribeData + 'k>(
-        self, driver: usize, minor: usize, callback: C, data: D
+    fn subscribe<L: Locator<SubscribeResponse<D>> + 'k, D: SubscribeData + 'k>(
+        self, driver: usize, minor: usize, locator: L, data: D
     ) {
         if driver == 1 && minor == 1 {
-            self.write_callback.set(Some(Box::new(RawCallback { callback, data })));
+            self.write_callback.set(Some(Box::new(RawCallback { callback: locator.get(), data })));
         }
     }
 
@@ -76,21 +76,24 @@ impl<'k> libtock_platform::Syscalls<'k> for &FakeSyscalls<'k> {
     }
 }
 
-//#[macro_export]
-//macro_rules! test_component {
-//	[$linkname: ident = $link:ident, $name:ident: $comp:ty = $init:expr] => {
-//		let mut $name = $init;
-//		#[derive(Clone, Copy)]
-//		struct $link<'k> { component: &'k $comp }
-//		impl<T> libtock_platform::Callback<T> for $link
-//		where $comp: libtock_platform::Callback<T> {
-//			fn locate() -> Self {
-//				panic!("locate() unavailable for test components");
-//			}
-//
-//			fn call(self, response: T) {
-//				self.component.call(
-//			}
-//		}
-//	};
-//}
+#[macro_export]
+macro_rules! test_component {
+    [$linkname:ident: $link:ident; $name:ident: $comp:ty = $init:expr] => {
+        let $name = $init;
+        #[derive(Clone, Copy)]
+        struct $link<'k> { component: &'k $comp }
+        impl<'k, T> libtock_platform::Locator<T> for $link<'k>
+        where &'k $comp: libtock_platform::Callback<T> {
+            type Callback = &'k $comp;
+
+            fn locate() -> &'k $comp {
+                panic!("locate() unavailable for test components");
+            }
+
+            fn get(self) -> &'k $comp {
+                self.component
+            }
+        }
+        let $linkname = $link { component: &$name };
+    };
+}

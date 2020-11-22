@@ -20,8 +20,6 @@ impl<AsyncResponse> SyncAdapter<AsyncResponse> {
 }
 
 impl<AsyncResponse> Callback<AsyncResponse> for &SyncAdapter<AsyncResponse> {
-    fn locate() -> Self { panic!("locate() invalid on SyncAdapter"); }
-
     fn call(self, response: AsyncResponse) {
         self.response.set(Some(response));
     }
