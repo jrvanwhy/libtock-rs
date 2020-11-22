@@ -17,18 +17,31 @@ pub struct WriteCompleted<D: SubscribeData> {
     pub data: D,
 }
 
-pub fn set_write_callback<'k, S: Syscalls<'k>, C: Callback<WriteCompleted<D>> + 'k, D: SubscribeData + 'k>(
-    syscalls: S, callback: C, data: D
-) {
-    syscalls.subscribe(1, 1, WriteCallback { callback }, data)
+#[derive(Copy, Clone)]
+pub struct Console<S> {
+    syscalls: S,
 }
 
-pub fn set_write_buffer<'k, S: Syscalls<'k>>(syscalls: S, buffer: &'k [u8]) {
-    syscalls.const_allow(1, 1, buffer)
+impl<S> Console<S> {
+    pub const fn new(syscalls: S) -> Self {
+        Console { syscalls }
+    }
 }
 
-pub fn start_write<'k, S: Syscalls<'k>>(syscalls: S, bytes: usize) {
-    syscalls.command(1, 1, bytes, 0)
+impl<'k, S: Syscalls<'k>> Console<S> {
+    pub fn set_write_callback<C: Callback<WriteCompleted<D>> + 'k, D: SubscribeData + 'k>(
+        self, callback: C, data: D
+    ) {
+        self.syscalls.subscribe(1, 1, WriteCallback { callback }, data)
+    }
+
+    pub fn set_write_buffer(self, buffer: &'k [u8]) {
+        self.syscalls.const_allow(1, 1, buffer)
+    }
+
+    pub fn start_write(self, bytes: usize) {
+        self.syscalls.command(1, 1, bytes, 0)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -52,14 +65,15 @@ mod tests {
 
         use libtock_sync::SyncAdapter;
         use libtock_unittest::FakeSyscalls;
-        use super::{set_write_buffer, set_write_callback, start_write};
+        use super::Console;
 
         let sync_adapter = &SyncAdapter::new();
         let syscalls = &FakeSyscalls::new();
+        let console = Console::new(syscalls);
 
-        set_write_callback(syscalls, sync_adapter, 1234);
-        set_write_buffer(syscalls, b"Hello");
-        start_write(syscalls, 5);
+        console.set_write_callback(sync_adapter, 1234);
+        console.set_write_buffer(b"Hello");
+        console.start_write(5);
         let response = sync_adapter.wait(syscalls);
         assert_eq!(response.bytes, 5);
         assert_eq!(response.data, 1234);

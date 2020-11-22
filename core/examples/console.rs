@@ -12,13 +12,16 @@ use libtock_console::{set_write_buffer, set_write_callback, start_write, WriteCo
 use libtock_platform::{Callback, Syscalls};
 use libtock_runtime::TockSyscalls;
 
+libtock_runtime::static_component![AppLink, APP: App = App::new()];
+libtock_runtime::static_component![ConsoleLink, CONSOLE: Console<TockSyscalls> = Console::new(TockSyscalls)];
+
 static mut GREETING: [u8; 7] = *b"Hello, ";
 static mut NOUN: [u8; 7] = *b"World!\n";
 
 fn main() {
-    set_write_callback(TockSyscalls, AppLink, 0);
-    set_write_buffer(TockSyscalls, unsafe { &GREETING } );
-    start_write(TockSyscalls, unsafe { GREETING.len() });
+    CONSOLE.set_write_callback(AppLink, 0);
+    CONSOLE.set_write_buffer(unsafe { &GREETING } );
+    CONSOLE.start_write(unsafe { GREETING.len() });
     loop {
         TockSyscalls.yieldk();
     }
@@ -42,9 +45,7 @@ impl Callback<WriteCompleted<usize>> for &App {
     fn call(self, _response: WriteCompleted<usize>) {
         if self.done.get() { return; }
         self.done.set(true);
-        set_write_buffer(TockSyscalls, unsafe { &NOUN } );
-        start_write(TockSyscalls, unsafe { NOUN.len() } );
+        CONSOLE.set_write_buffer(unsafe { &NOUN } );
+        CONSOLE.start_write(unsafe { NOUN.len() } );
     }
 }
-
-libtock_runtime::static_component![AppLink, APP: App = App::new()];
