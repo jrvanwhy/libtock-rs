@@ -39,7 +39,7 @@ impl<C: Callback<SubscribeResponse<D>>, D: SubscribeData> DynCallback for RawCal
 }
 
 impl<'k> libtock_platform::Syscalls<'k> for &FakeSyscalls<'k> {
-    fn subscribe<L: Locator<SubscribeResponse<D>> + 'k, D: SubscribeData + 'k>(
+    fn subscribe<C: Callback<SubscribeResponse<D>> + 'k, L: Locator<C>, D: SubscribeData + 'k>(
         self, driver: usize, minor: usize, locator: L, data: D
     ) {
         if driver == 1 && minor == 1 {
@@ -82,10 +82,7 @@ macro_rules! test_component {
         let $name = $init;
         #[derive(Clone, Copy)]
         struct $link<'k> { component: &'k $comp }
-        impl<'k, T> libtock_platform::Locator<T> for $link<'k>
-        where &'k $comp: libtock_platform::Callback<T> {
-            type Callback = &'k $comp;
-
+        impl<'k> libtock_platform::Locator<&'k $comp> for $link<'k> {
             fn locate() -> &'k $comp {
                 panic!("locate() unavailable for test components");
             }

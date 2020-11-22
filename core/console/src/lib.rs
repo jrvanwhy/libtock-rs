@@ -29,7 +29,7 @@ impl<S> Console<S> {
 }
 
 impl<'k, S: Syscalls<'k>> Console<S> {
-    pub fn set_write_callback<L: Locator<WriteCompleted<D>> + 'k, D: SubscribeData + 'k>(
+    pub fn set_write_callback<C: Callback<WriteCompleted<D>> + 'k, L: Locator<C>, D: SubscribeData + 'k>(
         self, locator: L, data: D
     ) {
         self.syscalls.subscribe(1, 1, WriteLocator { locator }, data)
@@ -60,14 +60,12 @@ struct WriteLocator<L> {
     locator: L,
 }
 
-impl<L: Locator<WriteCompleted<D>>, D: SubscribeData> Locator<SubscribeResponse<D>> for WriteLocator<L> {
-    type Callback = WriteCallback<L::Callback>;
-
-    fn locate() -> WriteCallback<L::Callback> {
+impl<C, L: Locator<C>> Locator<WriteCallback<C>> for WriteLocator<L> {
+    fn locate() -> WriteCallback<C> {
         WriteCallback { callback: L::locate() }
     }
 
-    fn get(self) -> WriteCallback<L::Callback> {
+    fn get(self) -> WriteCallback<C> {
         WriteCallback { callback: self.locator.get() }
     }
 }

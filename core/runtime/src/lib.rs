@@ -18,17 +18,17 @@ unsafe fn raw_subscribe(driver: usize, minor: usize, callback: unsafe extern fn(
     let _ = res;
 }
 
-unsafe extern fn kernel_callback<L: Locator<SubscribeResponse<D>>, D: SubscribeData>(
+unsafe extern fn kernel_callback<C: Callback<SubscribeResponse<D>>, L: Locator<C>, D: SubscribeData>(
     arg1: usize, arg2: usize, arg3: usize, data: usize
 ) {
     L::locate().call(SubscribeResponse { arg1, arg2, arg3, data: D::from_usize(data) });
 }
 
 impl libtock_platform::Syscalls<'static> for TockSyscalls {
-    fn subscribe<L: Locator<SubscribeResponse<D>> + 'static, D: SubscribeData + 'static>(
+    fn subscribe<C: Callback<SubscribeResponse<D>> + 'static, L: Locator<C>, D: SubscribeData + 'static>(
         self, driver: usize, minor: usize, _locator: L, data: D
     ) {
-        unsafe { raw_subscribe(driver, minor, kernel_callback::<L, D>, data.to_usize()) }
+        unsafe { raw_subscribe(driver, minor, kernel_callback::<C, L, D>, data.to_usize()) }
     }
 
     unsafe fn raw_const_allow(self, major: usize, minor: usize, slice: *const u8, len: usize) {
@@ -98,13 +98,10 @@ macro_rules! static_component {
         static $name: $crate::TockStatic<$comp> = $crate::TockStatic::new($init);
         #[derive(Clone, Copy)]
         struct $link;
-        impl<T> libtock_platform::Locator<T> for $link
-        where &'static $comp: libtock_platform::Callback<T> {
-            type Callback = &'static $comp;
+        impl libtock_platform::Locator<&'static $comp> for $link {
+            fn locate() -> &'static $comp { &$name }
 
-            fn locate() -> Self::Callback { &$name }
-
-            fn get(self) -> Self::Callback { &$name }
+            fn get(self) -> &'static $comp { &$name }
         }
     };
 }

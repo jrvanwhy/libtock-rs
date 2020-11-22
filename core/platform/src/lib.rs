@@ -4,11 +4,9 @@ pub trait Callback<AsyncResponse>: Copy {
     fn call(self, response: AsyncResponse);
 }
 
-pub trait Locator<AsyncResponse>: Copy {
-    type Callback: Callback<AsyncResponse>;
-
-    fn locate() -> Self::Callback;
-    fn get(self) -> Self::Callback;
+pub trait Locator<T>: Copy {
+    fn locate() -> T;
+    fn get(self) -> T;
 }
 
 pub struct SubscribeResponse<D: SubscribeData> {
@@ -34,7 +32,7 @@ unsafe impl<'k, T> SubscribeData for &'k T {
 }
 
 pub trait Syscalls<'k>: Copy {
-    fn subscribe<L: Locator<SubscribeResponse<D>> + 'k, D: SubscribeData + 'k>(
+    fn subscribe<C: Callback<SubscribeResponse<D>> + 'k, L: Locator<C>, D: SubscribeData + 'k>(
         self, driver: usize, minor: usize, locator: L, data: D);
 
     unsafe fn raw_const_allow(self, major: usize, minor: usize, slice: *const u8, len: usize);
