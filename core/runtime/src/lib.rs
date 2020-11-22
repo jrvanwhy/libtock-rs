@@ -1,25 +1,37 @@
 #![feature(llvm_asm)]
 #![no_std]
 
+use libtock_platform::{Callback, SubscribeResponse, SubscribeData};
+
 #[derive(Clone, Copy)]
 pub struct TockSyscalls;
 
-impl libtock_platform::Syscalls for TockSyscalls {
-    fn subscribe(self, driver: usize, minor: usize, callback: extern "C" fn(usize, usize, usize, usize), data: usize) {
-        let res: usize;
-        unsafe {
-            llvm_asm!(
-                "li a0, 1
-                ecall"
-                : "={x10}"(res)
-                : "{x11}"(driver), "{x12}"(minor), "{x13}"(callback), "{x14}"(data)
-                : "memory"
-                : "volatile");
-        }
-        let _ = res;
+unsafe fn raw_subscribe(driver: usize, minor: usize, callback: unsafe extern fn(usize, usize, usize, usize), data: usize) {
+    let res: usize;
+    llvm_asm!(
+        "li a0, 1
+        ecall"
+        : "={x10}"(res)
+        : "{x11}"(driver), "{x12}"(minor), "{x13}"(callback), "{x14}"(data)
+        : "memory"
+        : "volatile");
+    let _ = res;
+}
+
+unsafe extern fn kernel_callback<C: Callback<SubscribeResponse<D>>, D: SubscribeData>(
+    arg1: usize, arg2: usize, arg3: usize, data: usize
+) {
+    C::locate().call(SubscribeResponse { arg1, arg2, arg3, data: D::from_usize(data) });
+}
+
+impl libtock_platform::Syscalls<'static> for TockSyscalls {
+    fn subscribe<C: Callback<SubscribeResponse<D>> + 'static, D: SubscribeData + 'static>(
+        self, driver: usize, minor: usize, _callback: C, data: D
+    ) {
+        unsafe { raw_subscribe(driver, minor, kernel_callback::<C, D>, data.to_usize()) }
     }
 
-    unsafe fn const_allow(self, major: usize, minor: usize, slice: *const u8, len: usize) {
+    unsafe fn raw_const_allow(self, major: usize, minor: usize, slice: *const u8, len: usize) {
         let res: usize;
         llvm_asm!("li    a0, 3
           ecall"
@@ -59,15 +71,39 @@ impl libtock_platform::Syscalls for TockSyscalls {
     }
 }
 
+#[repr(transparent)]
+pub struct TockStatic<T> {
+    value: T,
+}
+
+impl<T> TockStatic<T> {
+    pub const fn new(value: T) -> TockStatic<T> {
+        TockStatic { value }
+    }
+}
+
+unsafe impl<T> Sync for TockStatic<T> {}
+
+impl<T> core::ops::Deref for TockStatic<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.value
+    }
+}
+
 #[macro_export]
 macro_rules! static_component {
     [$link:ident, $name:ident: $comp:ty = $init:expr] => {
-        static mut COMPONENT: $comp = $init;
+        static COMPONENT: $crate::TockStatic<$comp> = $crate::TockStatic::new($init);
+        #[derive(Clone, Copy)]
         struct $link;
-        impl<T> libtock_platform::FreeCallback<T> for $link
-        where $comp: libtock_platform::MethodCallback<T> {
-            fn call(response: T) {
-                unsafe { &COMPONENT }.call(response);
+        impl<T> libtock_platform::Callback<T> for $link
+        where &'static $comp: libtock_platform::Callback<T> {
+            fn locate() -> Self { Self }
+
+            fn call(self, response: T) {
+                COMPONENT.call(response);
             }
         }
     };

@@ -10,27 +10,38 @@
 //! system call API is documented at
 //! https://github.com/tock/tock/blob/master/doc/syscalls/00001_console.md.
 
-use libtock_platform::{FreeCallback, Syscalls};
+use libtock_platform::{Callback, SubscribeData, SubscribeResponse, Syscalls};
 
-pub struct WriteCompleted {
+pub struct WriteCompleted<D: SubscribeData> {
     pub bytes: usize,
-    pub data: usize,
+    pub data: D,
 }
 
-pub fn set_write_callback<S: Syscalls, Callback: FreeCallback<WriteCompleted>>(syscalls: S, data: usize) {
-    syscalls.subscribe(1, 1, write_complete::<Callback>, data);
+pub fn set_write_callback<'k, S: Syscalls<'k>, C: Callback<WriteCompleted<D>> + 'k, D: SubscribeData + 'k>(
+    syscalls: S, callback: C, data: D
+) {
+    syscalls.subscribe(1, 1, WriteCallback { callback }, data)
 }
 
-extern "C" fn write_complete<Callback: FreeCallback<WriteCompleted>>(bytes: usize, _: usize, _: usize, data: usize) {
-    Callback::call(WriteCompleted { bytes, data });
+pub fn set_write_buffer<'k, S: Syscalls<'k>>(syscalls: S, buffer: &'k [u8]) {
+    syscalls.const_allow(1, 1, buffer)
 }
 
-pub fn set_write_buffer<S: Syscalls>(syscalls: S, buffer: &'static [u8]) {
-    unsafe { syscalls.const_allow(1, 1, buffer.as_ptr(), buffer.len()); }
+pub fn start_write<'k, S: Syscalls<'k>>(syscalls: S, bytes: usize) {
+    syscalls.command(1, 1, bytes, 0)
 }
 
-pub fn start_write<S: Syscalls>(syscalls: S, bytes: usize) {
-    syscalls.command(1, 1, bytes, 0);
+#[derive(Clone, Copy)]
+struct WriteCallback<C: Copy> {
+    callback: C,
+}
+
+impl<C: Callback<WriteCompleted<D>>, D: SubscribeData> Callback<SubscribeResponse<D>> for WriteCallback<C> {
+    fn locate() -> Self { WriteCallback { callback: C::locate() } }
+
+    fn call(self, response: SubscribeResponse<D>) {
+        self.callback.call(WriteCompleted { bytes: response.arg1, data: response.data });
+    }
 }
 
 #[cfg(test)]
@@ -39,21 +50,17 @@ mod tests {
     fn write() {
         extern crate std;
 
-        use libtock_platform::MethodCallback;
         use libtock_sync::SyncAdapter;
         use libtock_unittest::FakeSyscalls;
-        use std::boxed::Box;
-        use std::thread_local;
-        use super::{set_write_buffer, set_write_callback, start_write, WriteCompleted};
+        use super::{set_write_buffer, set_write_callback, start_write};
 
-        let syscalls: &_ = Box::leak(Box::new(FakeSyscalls::new()));
-        libtock_unittest::test_component![SyncAdapterLink, sync_adapter: SyncAdapter<WriteCompleted, &'static FakeSyscalls>
-                                          = SyncAdapter::new(syscalls)];
+        let sync_adapter = &SyncAdapter::new();
+        let syscalls = &FakeSyscalls::new();
 
-        set_write_callback::<_, SyncAdapterLink>(syscalls, 1234);
+        set_write_callback(syscalls, sync_adapter, 1234);
         set_write_buffer(syscalls, b"Hello");
         start_write(syscalls, 5);
-        let response = sync_adapter.wait();
+        let response = sync_adapter.wait(syscalls);
         assert_eq!(response.bytes, 5);
         assert_eq!(response.data, 1234);
         assert_eq!(syscalls.read_buffer(), b"Hello");

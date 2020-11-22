@@ -1,30 +1,28 @@
-use libtock_platform::MethodCallback;
+use libtock_platform::{Callback, Syscalls};
 
-pub struct SyncAdapter<AsyncResponse, Syscalls> {
+pub struct SyncAdapter<AsyncResponse> {
     response: core::cell::Cell<Option<AsyncResponse>>,
-    syscalls: Syscalls,
 }
 
-impl<AsyncResponse, Syscalls> SyncAdapter<AsyncResponse, Syscalls> {
-    pub const fn new(syscalls: Syscalls) -> SyncAdapter<AsyncResponse, Syscalls> {
-        SyncAdapter { response: core::cell::Cell::new(None), syscalls }
+impl<AsyncResponse> SyncAdapter<AsyncResponse> {
+    pub const fn new() -> SyncAdapter<AsyncResponse> {
+        SyncAdapter { response: core::cell::Cell::new(None) }
     }
-}
 
-impl<AsyncResponse, Syscalls: libtock_platform::Syscalls> SyncAdapter<AsyncResponse, Syscalls> {
-    pub fn wait(&self) -> AsyncResponse {
+    pub fn wait<'k, S: Syscalls<'k>>(&self, syscalls: S) -> AsyncResponse {
         loop {
             match self.response.take() {
                 Some(response) => return response,
-                None => self.syscalls.yieldk(),
+                None => syscalls.yieldk(),
             }
         }
     }
 }
 
-impl<AsyncResponse, Syscalls: libtock_platform::Syscalls>
-MethodCallback<AsyncResponse> for SyncAdapter<AsyncResponse, Syscalls> {
-    fn call(&self, response: AsyncResponse) {
+impl<AsyncResponse> Callback<AsyncResponse> for &SyncAdapter<AsyncResponse> {
+    fn locate() -> Self { panic!("locate() invalid on SyncAdapter"); }
+
+    fn call(self, response: AsyncResponse) {
         self.response.set(Some(response));
     }
 }
