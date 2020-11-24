@@ -10,63 +10,53 @@
 //! system call API is documented at
 //! https://github.com/tock/tock/blob/master/doc/syscalls/00001_console.md.
 
-use libtock_platform::{Callback, Locator, SubscribeData, SubscribeResponse, Syscalls};
+use libtock_platform::{FreeCallback, Locator, SubscribeData, SubscribeResponse, Syscalls};
 
 pub struct WriteCompleted<D: SubscribeData> {
     pub bytes: usize,
     pub data: D,
 }
 
-#[derive(Copy, Clone)]
-pub struct Console<S> {
-    syscalls: S,
+pub struct Console<S, L> {
+    syscalls: core::marker::PhantomData<S>,
+    locator: core::marker::PhantomData<L>,
+    written: core::cell::Cell<usize>,
 }
 
-impl<S> Console<S> {
-    pub const fn new(syscalls: S) -> Self {
-        Console { syscalls }
+impl<S, L> Console<S, L> {
+    pub const fn new() -> Self {
+        Console { syscalls: core::marker::PhantomData,
+                  locator: core::marker::PhantomData,
+                  written: core::cell::Cell::new(0) }
     }
 }
 
-impl<'k, S: Syscalls<'k>> Console<S> {
-    pub fn set_write_callback<C: Callback<WriteCompleted<D>> + 'k, L: Locator<C>, D: SubscribeData + 'k>(
-        self, locator: L, data: D
+impl<S: Syscalls, L: Locator<T = Self>> Console<S, L> {
+    pub fn set_write_callback<C: FreeCallback<WriteCompleted<D>>, D: SubscribeData>(
+        &self, data: D
     ) {
-        self.syscalls.subscribe(1, 1, WriteLocator { locator }, data)
+        S::subscribe::<WriteCallback<C, L>, _>(1, 1, data)
     }
 
-    pub fn set_write_buffer(self, buffer: &'k [u8]) {
-        self.syscalls.const_allow(1, 1, buffer)
+    pub fn set_write_buffer(&self, buffer: &'static [u8]) {
+        S::const_allow(1, 1, buffer)
     }
 
-    pub fn start_write(self, bytes: usize) {
-        self.syscalls.command(1, 1, bytes, 0)
-    }
-}
-
-#[derive(Clone, Copy)]
-struct WriteCallback<C> {
-    callback: C,
-}
-
-impl<C: Callback<WriteCompleted<D>>, D: SubscribeData> Callback<SubscribeResponse<D>> for WriteCallback<C> {
-    fn call(self, response: SubscribeResponse<D>) {
-        self.callback.call(WriteCompleted { bytes: response.arg1, data: response.data });
+    pub fn start_write(&self, bytes: usize) {
+        S::command(1, 1, bytes, 0)
     }
 }
 
-#[derive(Clone, Copy)]
-struct WriteLocator<L> {
-    locator: L,
+struct WriteCallback<C, L> {
+    _callback: C,
+    _locator: L,
 }
 
-impl<C, L: Locator<C>> Locator<WriteCallback<C>> for WriteLocator<L> {
-    fn locate() -> WriteCallback<C> {
-        WriteCallback { callback: L::locate() }
-    }
-
-    fn get(self) -> WriteCallback<C> {
-        WriteCallback { callback: self.locator.get() }
+impl<C: FreeCallback<WriteCompleted<D>>, D: SubscribeData, S: 'static, L: Locator<T = Console<S, L>>>
+FreeCallback<SubscribeResponse<D>> for WriteCallback<C, L> {
+    fn call(response: SubscribeResponse<D>) {
+        L::locate().written.set(L::locate().written.get() + response.arg1);
+        C::call(WriteCompleted { bytes: response.arg1, data: response.data });
     }
 }
 
@@ -77,19 +67,25 @@ mod tests {
         extern crate std;
 
         use libtock_sync::SyncAdapter;
-        use libtock_unittest::{FakeSyscalls, test_component};
+        use libtock_unittest::{FakeConsole, FakeSyscalls, test_component};
         use super::{Console, WriteCompleted};
 
-        test_component![sync_link: SyncLink; sync_adapter: SyncAdapter<WriteCompleted<usize>> = SyncAdapter::new()];
-        let syscalls = &FakeSyscalls::new();
-        let console = Console::new(syscalls);
+        let fake_syscalls = FakeSyscalls::new();
+        let fake_console = FakeConsole::new();
+        fake_syscalls.add_driver(fake_console.clone());
+        test_component![
+            SyncLocator, SYNC_ADAPTER;
+            sync_adapter: SyncAdapter<FakeSyscalls, WriteCompleted<usize>> = SyncAdapter::new()
+        ];
+        test_component![ConsoleLocator, CONSOLE;
+                        console: Console<FakeSyscalls, ConsoleLocator> = Console::new()];
 
-        console.set_write_callback(sync_link, 1234);
+        console.set_write_callback::<SyncLocator, _>(1234);
         console.set_write_buffer(b"Hello");
         console.start_write(5);
-        let response = sync_adapter.wait(syscalls);
+        let response = sync_adapter.wait();
         assert_eq!(response.bytes, 5);
         assert_eq!(response.data, 1234);
-        assert_eq!(syscalls.read_buffer(), b"Hello");
+        assert_eq!(fake_console.get_output(), b"Hello");
     }
 }

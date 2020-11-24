@@ -1,37 +1,10 @@
 #![feature(llvm_asm)]
 #![no_std]
 
-use libtock_platform::{Callback, Locator, SubscribeResponse, SubscribeData};
-
-#[derive(Clone, Copy)]
 pub struct TockSyscalls;
 
-unsafe fn raw_subscribe(driver: usize, minor: usize, callback: unsafe extern fn(usize, usize, usize, usize), data: usize) {
-    let res: usize;
-    llvm_asm!(
-        "li a0, 1
-        ecall"
-        : "={x10}"(res)
-        : "{x11}"(driver), "{x12}"(minor), "{x13}"(callback), "{x14}"(data)
-        : "memory"
-        : "volatile");
-    let _ = res;
-}
-
-unsafe extern fn kernel_callback<C: Callback<SubscribeResponse<D>>, L: Locator<C>, D: SubscribeData>(
-    arg1: usize, arg2: usize, arg3: usize, data: usize
-) {
-    L::locate().call(SubscribeResponse { arg1, arg2, arg3, data: D::from_usize(data) });
-}
-
-impl libtock_platform::Syscalls<'static> for TockSyscalls {
-    fn subscribe<C: Callback<SubscribeResponse<D>> + 'static, L: Locator<C>, D: SubscribeData + 'static>(
-        self, driver: usize, minor: usize, _locator: L, data: D
-    ) {
-        unsafe { raw_subscribe(driver, minor, kernel_callback::<C, L, D>, data.to_usize()) }
-    }
-
-    unsafe fn raw_const_allow(self, major: usize, minor: usize, slice: *const u8, len: usize) {
+impl libtock_platform::Syscalls for TockSyscalls {
+    unsafe fn raw_const_allow(major: usize, minor: usize, slice: *const u8, len: usize) {
         let res: usize;
         llvm_asm!("li    a0, 3
           ecall"
@@ -42,7 +15,19 @@ impl libtock_platform::Syscalls<'static> for TockSyscalls {
         let _ = res;
     }
 
-    fn command(self, major: usize, minor: usize, arg1: usize, arg2: usize) {
+    unsafe fn raw_subscribe(major: usize, minor: usize, callback: unsafe extern fn(usize, usize, usize, usize), data: usize) {
+        let res: usize;
+        llvm_asm!(
+            "li a0, 1
+            ecall"
+            : "={x10}"(res)
+            : "{x11}"(major), "{x12}"(minor), "{x13}"(callback), "{x14}"(data)
+            : "memory"
+            : "volatile");
+        let _ = res;
+    }
+
+    fn command(major: usize, minor: usize, arg1: usize, arg2: usize) {
         let res: usize;
         unsafe {
             llvm_asm!("li    a0, 2
@@ -55,7 +40,7 @@ impl libtock_platform::Syscalls<'static> for TockSyscalls {
         let _ = res;
     }
 
-    fn yieldk(self) {
+    fn yieldk() {
         let res: usize;
         unsafe {
             llvm_asm! (
@@ -71,6 +56,7 @@ impl libtock_platform::Syscalls<'static> for TockSyscalls {
     }
 }
 
+// Should this be called SyncWrap?
 #[repr(transparent)]
 pub struct TockStatic<T> {
     value: T,
@@ -94,14 +80,12 @@ impl<T> core::ops::Deref for TockStatic<T> {
 
 #[macro_export]
 macro_rules! static_component {
-    [$link:ident, $name:ident: $comp:ty = $init:expr] => {
+    [$locator:ident; $name:ident: $comp:ty = $init:expr] => {
         static $name: $crate::TockStatic<$comp> = $crate::TockStatic::new($init);
-        #[derive(Clone, Copy)]
-        struct $link;
-        impl libtock_platform::Locator<&'static $comp> for $link {
+        struct $locator;
+        impl libtock_platform::Locator for $locator {
+            type T = $comp;
             fn locate() -> &'static $comp { &$name }
-
-            fn get(self) -> &'static $comp { &$name }
         }
     };
 }

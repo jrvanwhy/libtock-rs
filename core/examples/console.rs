@@ -9,21 +9,24 @@ extern crate libtock_core;
 pub static mut STACK_MEMORY: [u8; 0x800] = [0; 0x800];
 
 use libtock_console::{Console, WriteCompleted};
-use libtock_platform::{Callback, Syscalls};
+use libtock_platform::{MethodCallback, Syscalls};
 use libtock_runtime::TockSyscalls;
 
-libtock_runtime::static_component![AppLink, APP: App = App::new()];
-libtock_runtime::static_component![ConsoleLink, CONSOLE: Console<TockSyscalls> = Console::new(TockSyscalls)];
+libtock_runtime::static_component![AppLocator; APP: App = App::new()];
+libtock_runtime::static_component![
+    ConsoleLocator;
+    CONSOLE: Console<TockSyscalls, ConsoleLocator> = Console::new()
+];
 
 static mut GREETING: [u8; 7] = *b"Hello, ";
 static mut NOUN: [u8; 7] = *b"World!\n";
 
 fn main() {
-    CONSOLE.set_write_callback(AppLink, 0);
+    CONSOLE.set_write_callback::<AppLocator, _>(0);
     CONSOLE.set_write_buffer(unsafe { &GREETING } );
     CONSOLE.start_write(unsafe { GREETING.len() });
     loop {
-        TockSyscalls.yieldk();
+        TockSyscalls::yieldk();
     }
 }
 
@@ -39,8 +42,8 @@ impl App {
     }
 }
 
-impl Callback<WriteCompleted<usize>> for &App {
-    fn call(self, _response: WriteCompleted<usize>) {
+impl MethodCallback<WriteCompleted<usize>> for App {
+    fn call(&self, _response: WriteCompleted<usize>) {
         if self.done.get() { return; }
         self.done.set(true);
         CONSOLE.set_write_buffer(unsafe { &NOUN } );

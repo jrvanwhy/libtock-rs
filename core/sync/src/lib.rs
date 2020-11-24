@@ -1,26 +1,32 @@
-use libtock_platform::{Callback, Syscalls};
+#![no_std]
 
-pub struct SyncAdapter<AsyncResponse> {
+use libtock_platform::{MethodCallback, Syscalls};
+
+pub struct SyncAdapter<S, AsyncResponse> {
     response: core::cell::Cell<Option<AsyncResponse>>,
+    syscalls: core::marker::PhantomData<S>,
 }
 
-impl<AsyncResponse> SyncAdapter<AsyncResponse> {
-    pub const fn new() -> SyncAdapter<AsyncResponse> {
-        SyncAdapter { response: core::cell::Cell::new(None) }
+impl<S, AsyncResponse> SyncAdapter<S, AsyncResponse> {
+    pub const fn new() -> SyncAdapter<S, AsyncResponse> {
+        SyncAdapter { response: core::cell::Cell::new(None),
+                      syscalls: core::marker::PhantomData }
     }
+}
 
-    pub fn wait<'k, S: Syscalls<'k>>(&self, syscalls: S) -> AsyncResponse {
+impl<S: Syscalls, AsyncResponse> SyncAdapter<S, AsyncResponse> {
+    pub fn wait(&self) -> AsyncResponse {
         loop {
             match self.response.take() {
                 Some(response) => return response,
-                None => syscalls.yieldk(),
+                None => S::yieldk(),
             }
         }
     }
 }
 
-impl<AsyncResponse> Callback<AsyncResponse> for &SyncAdapter<AsyncResponse> {
-    fn call(self, response: AsyncResponse) {
+impl<S, AsyncResponse> MethodCallback<AsyncResponse> for SyncAdapter<S, AsyncResponse> {
+    fn call(&self, response: AsyncResponse) {
         self.response.set(Some(response));
     }
 }
