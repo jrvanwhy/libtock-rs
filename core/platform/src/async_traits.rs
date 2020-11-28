@@ -65,7 +65,15 @@ pub struct CallbackContext<'c> {
     // "unused lifetime" error, it provides the proper variance over 'c, and it
     // prevents code outside this crate from constructing a CallbackContext
     // (because of its visibility control).
-    pub(crate) _phantom: core::marker::PhantomData<&'c ()>,
+    _phantom: core::marker::PhantomData<&'c ()>,
+}
+
+impl CallbackContext<'_> {
+    pub(crate) fn new() -> Self {
+        CallbackContext {
+            _phantom: core::marker::PhantomData,
+        }
+    }
 }
 
 /// Provides access to a global instance of type `Target`. Every call to
