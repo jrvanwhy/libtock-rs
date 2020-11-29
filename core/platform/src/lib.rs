@@ -10,6 +10,7 @@
 
 mod allows;
 mod async_traits;
+mod command_return;
 mod raw_syscalls;
 mod struct_error_code;
 mod struct_return_type;
@@ -17,7 +18,11 @@ mod syscalls;
 
 pub use allows::{AllowReadable, Allowed};
 pub use async_traits::{CallbackContext, FreeCallback, Locator, MethodCallback};
+pub use command_return::CommandReturn;
 pub use raw_syscalls::{OneArgMemop, RawSyscalls, YieldType, ZeroArgMemop};
 pub use struct_error_code::{error_code, ErrorCode};
 pub use struct_return_type::{return_type, ReturnType};
 pub use syscalls::Syscalls;
+
+#[cfg(test)]
+mod command_return_tests;

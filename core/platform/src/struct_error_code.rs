@@ -3,7 +3,12 @@
 /// response to a system call.
 // ErrorCode is not an enum so that conversion from the kernel's return value (a
 // `usize` in a register) is free.
-#[derive(Clone, Copy, PartialEq, Eq)]
+// TODO: derive(Debug) is currently only enabled for test builds, which is
+// necessary so it can be used in assert_eq!. We should develop a lighter-weight
+// Debug implementation and see if it is small enough to enable on non-Debug
+// builds.
+#[cfg_attr(test, derive(Debug))]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct ErrorCode {
     value: usize,
 }
