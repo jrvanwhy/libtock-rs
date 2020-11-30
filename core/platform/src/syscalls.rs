@@ -1,8 +1,6 @@
 // TODO: Implement `libtock_runtime` and `libtock_unittest`, which are
 // referenced in the comment on `Syscalls`.
 
-// TODO: Unit test all of these.
-
 use crate::{
     CommandReturn, ErrorCode, FreeCallback, SubscribeData, SubscribeResponse, Subscription,
 };

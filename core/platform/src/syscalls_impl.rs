@@ -7,6 +7,9 @@ use crate::{
 };
 use core::slice::from_raw_parts_mut;
 
+// TODO: Unit test all of these, which we should do when
+// `libtock_unittest::FakeSyscalls` has been implemented.
+
 impl<S: RawSyscalls> Syscalls for S {
     // -------------------------------------------------------------------------
     // Yield
