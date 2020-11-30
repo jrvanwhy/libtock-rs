@@ -13,6 +13,7 @@ mod raw_syscalls;
 mod struct_error_code;
 mod struct_return_type;
 mod syscalls;
+mod syscalls_impl;
 
 pub use allows::{AllowReadable, Allowed};
 pub use raw_syscalls::{OneArgMemop, RawSyscalls, YieldType, ZeroArgMemop};
