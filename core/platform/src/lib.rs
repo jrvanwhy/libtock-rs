@@ -14,6 +14,7 @@ mod raw_syscalls;
 mod struct_error_code;
 mod struct_return_type;
 mod syscalls;
+mod syscalls_impl;
 
 pub use allows::{AllowReadable, Allowed};
 pub use command_return::CommandReturn;
