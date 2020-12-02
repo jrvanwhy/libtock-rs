@@ -217,6 +217,7 @@ pub enum OneArgMemop {
 
 // TODO: When the numeric values (0 and 1) are assigned to the yield types,
 // specify those values here.
+#[derive(Debug)]
 #[non_exhaustive]
 #[repr(u32)]
 pub enum YieldType {
