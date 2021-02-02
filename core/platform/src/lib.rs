@@ -1,5 +1,7 @@
 #![no_std]
 
+struct Unused;
+
 mod async_traits;
 mod command_return;
 pub mod error_code;
