@@ -84,6 +84,7 @@ members = [
     "core",
     "core/platform",
     "core/runtime",
+    "core/unittest",
     "test_runner",
     "tools/print_sizes",
 ]
