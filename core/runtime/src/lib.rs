@@ -23,8 +23,12 @@
 
 mod startup;
 
+//mod start_prototype;
+
 /// TockSyscalls implements `libtock_platform::Syscalls`.
 pub struct TockSyscalls;
 
+#[cfg(target_arch = "arm")]
+mod syscalls_impl_arm;
 #[cfg(target_arch = "riscv32")]
 mod syscalls_impl_riscv;

@@ -1,7 +1,8 @@
 [toolchain]
 # See https://rust-lang.github.io/rustup-components-history/ for a list of
 # recently nightlies and what components are available for them.
-channel = "nightly-2020-08-20"
+# nightly-2021-02-17 should have the r14 fix.
+channel = "nightly-2021-02-17"
 components = ["clippy", "miri", "rustfmt"]
 targets = ["thumbv7em-none-eabi",
            "riscv32imac-unknown-none-elf",

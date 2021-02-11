@@ -82,8 +82,16 @@ exclude = [ "tock" ]
 members = [
     "codegen",
     "core",
+    "core/console",
+    "core/fmt",
+    "core/libtock2",
+    "core/low_level_debug",
+    "core/panic_debug",
     "core/platform",
     "core/runtime",
+    "core/syscall_tests",
+    "core/tdebug_derive",
+    "core/unittest",
     "test_runner",
     "tools/print_sizes",
 ]

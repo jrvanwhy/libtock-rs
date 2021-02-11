@@ -56,7 +56,6 @@ use core::ptr;
 // placed by the linker script.
 
 #[cfg_attr(target_arch = "riscv32", path = "start_item_riscv32.rs")]
-#[cfg_attr(target_arch = "arm", path = "start_item_arm.rs")]
 mod start_item;
 
 /// The header encoded at the beginning of .text by the linker script. It is

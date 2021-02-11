@@ -4,7 +4,10 @@ use core::mem::transmute;
 
 /// The response type from `command`. Can represent a successful value or a
 /// failure.
-#[derive(Clone, Copy)]
+///
+/// The `core::fmt::Debug` implementation is only for host-based tests, use
+/// `ufmt::uDebug` for embedded debug output.
+#[derive(Clone, Copy, Debug, ufmt::derive::uDebug)]
 pub struct CommandReturn {
     return_variant: ReturnVariant,
     // r1, r2, and r3 should only contain 32-bit values. However, these are
@@ -24,13 +27,7 @@ pub struct CommandReturn {
 impl CommandReturn {
     /// # Safety
     /// If return_variant is a failure variant, r1 must be a valid ErrorCode.
-    #[cfg(test)] // Will be removed when command() is implemented.
-    pub(crate) unsafe fn new(
-        return_variant: ReturnVariant,
-        r1: usize,
-        r2: usize,
-        r3: usize,
-    ) -> Self {
+    pub unsafe fn new(return_variant: ReturnVariant, r1: usize, r2: usize, r3: usize) -> Self {
         CommandReturn {
             return_variant,
             r1,
@@ -106,7 +103,7 @@ impl CommandReturn {
         if !self.is_failure() {
             return None;
         }
-        Some(unsafe { transmute(self.r1 as u16) })
+        Some(unsafe { transmute(self.r1 as u32) })
     }
 
     /// Returns the error code and value if this CommandReturn is of type
@@ -115,7 +112,7 @@ impl CommandReturn {
         if !self.is_failure_u32() {
             return None;
         }
-        Some((unsafe { transmute(self.r1 as u16) }, self.r2 as u32))
+        Some((unsafe { transmute(self.r1 as u32) }, self.r2 as u32))
     }
 
     /// Returns the error code and return values if this CommandReturn is of
@@ -125,7 +122,7 @@ impl CommandReturn {
             return None;
         }
         Some((
-            unsafe { transmute(self.r1 as u16) },
+            unsafe { transmute(self.r1 as u32) },
             self.r2 as u32,
             self.r3 as u32,
         ))
@@ -138,7 +135,7 @@ impl CommandReturn {
             return None;
         }
         Some((
-            unsafe { transmute(self.r1 as u16) },
+            unsafe { transmute(self.r1 as u32) },
             self.r2 as u64 + ((self.r3 as u64) << 32),
         ))
     }
@@ -187,5 +184,12 @@ impl CommandReturn {
     /// Returns the return variant of this command.
     pub fn return_variant(&self) -> ReturnVariant {
         self.return_variant
+    }
+
+    /// Returns the raw register values that produced this CommandReturn. This
+    /// exists primarily for `libtock_unittest`, and should not be used
+    /// elsewhere.
+    pub fn raw_registers(&self) -> (u32, usize, usize, usize) {
+        (self.return_variant.into(), self.r1, self.r2, self.r3)
     }
 }

@@ -20,7 +20,7 @@
  * --protected-region-size flag passed to elf2tab.
  *
  * This places the flash sections in the following order:
- *     1. .rt_header -- Constants used by runtime initialization.
+ *     1. .start     -- Runtime initialization constants and code.
  *     2. .text      -- Executable code.
  *     3. .rodata    -- Read-only global data (e.g. most string constants).
  *     4. .data      -- Read-write data, copied to RAM at runtime.
@@ -53,10 +53,12 @@ SECTIONS {
         . = . + TBF_HEADER_SIZE;
     } > FLASH
 
-    /* Runtime header. Contains values the linker knows that the runtime needs
-     * to look up.
+    /* Runtime setup logic. The rt_header symbol is used by the start assembly.
+     * We have to include start here (rather than in .text) because otherwise
+     * elf2tab fails to recognize that the process binary's flash region should
+     * start at the beginning of .start.
      */
-    .rt_header : {
+    .start ALIGN(4) : {
         rt_header = .;
         LONG(start);
         LONG(ADDR(.bss) + SIZEOF(.bss)); /* Initial process break */
@@ -66,17 +68,18 @@ SECTIONS {
         LONG(ADDR(.data));
         LONG(SIZEOF(.bss));
         LONG(ADDR(.bss));
+
+        *(.start)
     } > FLASH
 
     /* Text section -- the application's code. */
-    .text ALIGN(4) : {
-        *(.start)
-        *(.text)
+    .text : {
+        *(.text.*)
     } > FLASH
 
     /* Read-only data section. Contains strings and other global constants. */
     .rodata ALIGN(4) : {
-        *(.rodata)
+        *(.rodata.*)
         /* .data is placed after .rodata in flash. data_flash_start is used by
          * AT() to place .data in flash as well as in rt_header.
          */
@@ -116,7 +119,7 @@ SECTIONS {
      */
     .bss ALIGN(4) (NOLOAD) : {
         /* .sbss is the RISC-V small data section */
-        *(.sbss .bss)
+        *(.sbss .bss.*)
     } > RAM
 
     _heap_start = ADDR(.bss) + SIZEOF(.bss);  /* Used by rt_header */

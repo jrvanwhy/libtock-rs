@@ -11,3 +11,6 @@ license = "Apache-2.0 OR MIT"
 name = "libtock_platform"
 repository = "https://www.github.com/tock/libtock/rs"
 version = "0.1.0"
+
+[dependencies]
+ufmt = "0.1.0"

@@ -9,7 +9,15 @@ pub(crate) fn build_and_link(out_dir: &str) {
     // Identify the toolchain configurations to try for the target architecture.
     // We support trying multiple toolchains because not all toolchains are
     // available on every OS that we want to support development on.
-    let build_configs = match arch.as_str() {
+    let build_configs: &[AsmBuildConfig] = match arch.as_str() {
+        // The instructions supported by thumbv7m are a subset of the
+        // instructions in thumbv7em. Use a thumbv7m toolchain so this runs on
+        // both architectures.
+        "arm" => &[AsmBuildConfig {
+            triple: "arm-none-eabi",
+            as_extra_args: &[],
+            strip: false,
+        }],
         "riscv32" => &[
             // First try riscv64-unknown-elf, as it is the toolchain used by
             // libtock-c and the toolchain used in the CI environment.
@@ -44,6 +52,11 @@ pub(crate) fn build_and_link(out_dir: &str) {
             return;
         }
     }
+
+    panic!(
+        "Unable to find a working toolchain for architecture {}",
+        arch
+    );
 }
 
 #[derive(Clone, Copy)]

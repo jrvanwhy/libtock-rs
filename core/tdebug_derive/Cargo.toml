@@ -1,0 +1,28 @@
+[package]
+authors = ["Tock Project Developers <tock-dev@googlegroups.com>"]
+categories = ["embedded", "no-std", "os"]
+description = "libtock-rs TDebug derive macro."
+edition = "2018"
+license = "Apache-2.0 OR MIT"
+name = "libtock_tdebug_derive"
+repository = "https://www.github.com/tock/libtock-rs"
+version = "0.1.0"
+
+[dependencies]
+libtock_fmt = { path = "../fmt" }
+
+[dependencies.proc-macro2]
+default-features = false
+version = "1.0.24"
+
+[dependencies.quote]
+default-features = false
+version = "1.0.9"
+
+[dependencies.syn]
+default-features = false
+features = ["derive", "parsing", "printing", "proc-macro"]
+version = "1.0.60"
+
+[lib]
+proc-macro = true

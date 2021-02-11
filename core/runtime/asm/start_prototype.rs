@@ -31,32 +31,33 @@ extern fn start_prototype(
     _app_break: usize,
 ) -> ! {
     use crate::TockSyscalls;
-    use libtock_platform::{OneArgMemop, RawSyscalls, YieldType};
+    use libtock_platform::RawSyscalls;
 
     let pc: usize;
-    #[cfg(target_arch = "riscv32")]
     unsafe {
+        #[cfg(target_arch = "arm")]
+        asm!("mov {}, pc", lateout(reg) pc, options(nomem, nostack, preserves_flags));
+        #[cfg(target_arch = "riscv32")]
         asm!("auipc {}, 0", lateout(reg) pc, options(nomem, nostack, preserves_flags));
     }
     if pc != rt_header.start {
         // Binary is in an incorrect location: report an error via
-        // LowLevelDebug.
+        // LowLevelDebug then exit.
         unsafe {
-            TockSyscalls::four_arg_syscall(8, 1, 2, 0, 2);
-        }
-        // TODO: Replace with an Exit call when exit is implemented.
-        loop {
-            TockSyscalls::raw_yield(YieldType::Wait);
+            TockSyscalls::four_arg_syscall::<2>(8, 1, 2, 0);
+            TockSyscalls::one_arg_syscall::<6>(0);
         }
     }
 
     // Set the app break.
     // TODO: Replace with Syscalls::memop_brk() when that is implemented.
-    TockSyscalls::one_arg_memop(OneArgMemop::Brk, rt_header.initial_break);
+    unsafe { TockSyscalls::two_arg_syscall::<5>(0, rt_header.initial_break); }
 
     // Set the stack pointer.
-    #[cfg(target_arch = "riscv32")]
     unsafe {
+        #[cfg(target_arch = "arm")]
+        asm!("mov sp, {}", in(reg) rt_header.stack_top, options(nomem, preserves_flags));
+        #[cfg(target_arch = "riscv32")]
         asm!("mv sp, {}", in(reg) rt_header.stack_top, options(nomem, preserves_flags));
     }
 

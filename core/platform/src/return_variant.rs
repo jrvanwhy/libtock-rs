@@ -4,8 +4,7 @@
 // necessary so it can be used in assert_eq!. We should develop a lighter-weight
 // Debug implementation and see if it is small enough to enable on non-Debug
 // builds.
-#[cfg_attr(test, derive(Debug))]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ufmt::derive::uDebug)]
 pub struct ReturnVariant(u32);
 
 impl From<u32> for ReturnVariant {
