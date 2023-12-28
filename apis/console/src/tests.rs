@@ -79,17 +79,17 @@ fn failed_print() {
     kernel.add_driver(&driver);
     kernel.add_expected_syscall(ExpectedSyscall::AllowRo {
         driver_num: DRIVER_NUM,
-        buffer_num: allow_ro::WRITE,
+        buffer_num: allow_ro_num::WRITE,
         return_error: None,
     });
     kernel.add_expected_syscall(ExpectedSyscall::Subscribe {
         driver_num: DRIVER_NUM,
-        subscribe_num: subscribe::WRITE,
+        subscribe_num: subscribe_num::WRITE,
         skip_with_error: None,
     });
     kernel.add_expected_syscall(ExpectedSyscall::Command {
         driver_id: DRIVER_NUM,
-        command_id: command::WRITE,
+        command_id: command_num::WRITE,
         argument0: 5,
         argument1: 0,
         override_return: Some(command_return::failure(ErrorCode::Fail)),
@@ -107,17 +107,17 @@ fn failed_read() {
     kernel.add_driver(&driver);
     kernel.add_expected_syscall(ExpectedSyscall::AllowRw {
         driver_num: DRIVER_NUM,
-        buffer_num: allow_rw::READ,
+        buffer_num: allow_rw_num::READ,
         return_error: None,
     });
     kernel.add_expected_syscall(ExpectedSyscall::Subscribe {
         driver_num: DRIVER_NUM,
-        subscribe_num: subscribe::READ,
+        subscribe_num: subscribe_num::READ,
         skip_with_error: None,
     });
     kernel.add_expected_syscall(ExpectedSyscall::Command {
         driver_id: DRIVER_NUM,
-        command_id: command::READ,
+        command_id: command_num::READ,
         argument0: 3,
         argument1: 0,
         override_return: Some(command_return::failure(ErrorCode::Fail)),

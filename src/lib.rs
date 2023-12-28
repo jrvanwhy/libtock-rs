@@ -39,7 +39,9 @@ pub mod buzzer {
     pub use buzzer::Note;
 }
 pub mod console {
+    pub use console::async_reader;
     use libtock_console as console;
+    pub type AsyncReader = console::AsyncReader<super::runtime::TockSyscalls>;
     pub type Console = console::Console<super::runtime::TockSyscalls>;
     pub use console::ConsoleWriter;
 }

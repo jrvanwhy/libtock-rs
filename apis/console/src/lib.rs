@@ -1,14 +1,17 @@
 #![no_std]
 
+pub mod async_reader;
+
 use core::cell::Cell;
 use core::fmt;
 use core::marker::PhantomData;
 use libtock_platform as platform;
 use libtock_platform::allow_ro::AllowRo;
-use libtock_platform::allow_rw::AllowRw;
 use libtock_platform::share;
 use libtock_platform::subscribe::Subscribe;
 use libtock_platform::{DefaultConfig, ErrorCode, Syscalls};
+
+pub use async_reader::AsyncReader;
 
 /// The console driver.
 ///
@@ -32,7 +35,7 @@ impl<S: Syscalls, C: Config> Console<S, C> {
     /// memory.
     #[inline(always)]
     pub fn exists() -> bool {
-        S::command(DRIVER_NUM, command::EXISTS, 0, 0).is_success()
+        S::command(DRIVER_NUM, command_num::EXISTS, 0, 0).is_success()
     }
 
     /// Writes bytes.
@@ -42,19 +45,19 @@ impl<S: Syscalls, C: Config> Console<S, C> {
         let called: Cell<Option<(u32,)>> = Cell::new(None);
         share::scope::<
             (
-                AllowRo<_, DRIVER_NUM, { allow_ro::WRITE }>,
-                Subscribe<_, DRIVER_NUM, { subscribe::WRITE }>,
+                AllowRo<_, DRIVER_NUM, { allow_ro_num::WRITE }>,
+                Subscribe<_, DRIVER_NUM, { subscribe_num::WRITE }>,
             ),
             _,
             _,
         >(|handle| {
             let (allow_ro, subscribe) = handle.split();
 
-            S::allow_ro::<C, DRIVER_NUM, { allow_ro::WRITE }>(allow_ro, s)?;
+            S::allow_ro::<C, DRIVER_NUM, { allow_ro_num::WRITE }>(allow_ro, s)?;
 
-            S::subscribe::<_, _, C, DRIVER_NUM, { subscribe::WRITE }>(subscribe, &called)?;
+            S::subscribe::<_, _, C, DRIVER_NUM, { subscribe_num::WRITE }>(subscribe, &called)?;
 
-            S::command(DRIVER_NUM, command::WRITE, s.len() as u32, 0).to_result()?;
+            S::command(DRIVER_NUM, command_num::WRITE, s.len() as u32, 0).to_result()?;
 
             loop {
                 S::yield_wait();
@@ -70,37 +73,18 @@ impl<S: Syscalls, C: Config> Console<S, C> {
     /// No special guarantees about when the read stops.
     /// Returns count of bytes written to `buf`.
     pub fn read(buf: &mut [u8]) -> (usize, Result<(), ErrorCode>) {
-        let called: Cell<Option<(u32, u32)>> = Cell::new(None);
-        let mut bytes_received = 0;
-        let r = share::scope::<
-            (
-                AllowRw<_, DRIVER_NUM, { allow_rw::READ }>,
-                Subscribe<_, DRIVER_NUM, { subscribe::READ }>,
-            ),
-            _,
-            _,
-        >(|handle| {
-            let (allow_rw, subscribe) = handle.split();
-            let len = buf.len();
-            S::allow_rw::<C, DRIVER_NUM, { allow_rw::READ }>(allow_rw, buf)?;
-            S::subscribe::<_, _, C, DRIVER_NUM, { subscribe::READ }>(subscribe, &called)?;
-
-            // When this fails, `called` is guaranteed unmodified,
-            // because upcalls are never processed until we call `yield`.
-            S::command(DRIVER_NUM, command::READ, len as u32, 0).to_result()?;
-
+        let reader = AsyncReader::<S, C>::default();
+        share::scope(|handle| {
+            if let Err(error) = reader.read(handle, buf) {
+                return (0, Err(error));
+            }
             loop {
                 S::yield_wait();
-                if let Some((status, bytes_pushed_count)) = called.get() {
-                    bytes_received = bytes_pushed_count as usize;
-                    return match status {
-                        0 => Ok(()),
-                        e_status => Err(e_status.try_into().unwrap_or(ErrorCode::Fail)),
-                    };
+                if let Some(output) = reader.output() {
+                    return (output.bytes as usize, output.status);
                 }
             }
-        });
-        (bytes_received, r)
+        })
     }
 
     pub fn writer() -> ConsoleWriter<S> {
@@ -141,7 +125,7 @@ const DRIVER_NUM: u32 = 1;
 
 // Command IDs
 #[allow(unused)]
-mod command {
+mod command_num {
     pub const EXISTS: u32 = 0;
     pub const WRITE: u32 = 1;
     pub const READ: u32 = 2;
@@ -149,15 +133,15 @@ mod command {
 }
 
 #[allow(unused)]
-mod subscribe {
+mod subscribe_num {
     pub const WRITE: u32 = 1;
     pub const READ: u32 = 2;
 }
 
-mod allow_ro {
+mod allow_ro_num {
     pub const WRITE: u32 = 1;
 }
 
-mod allow_rw {
+mod allow_rw_num {
     pub const READ: u32 = 1;
 }
